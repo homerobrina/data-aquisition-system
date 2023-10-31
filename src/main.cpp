@@ -60,8 +60,8 @@ private:
             std::istream is(&buffer_);
             std::string message(std::istreambuf_iterator<char>(is), {});
             std::vector<std::string> parts;
+            message.resize(message.size() - 2);
             boost::split(parts, message, boost::is_any_of("|"));
-
             if(parts[0] == "LOG"){
               LogRecord measure;
                 if (parts[1].size() < sizeof(measure.sensor_id)) {
@@ -71,25 +71,16 @@ private:
                 }
               measure.timestamp = string_to_time_t(parts[2]);
               measure.value = std::stod(parts[3]);
-              std::fstream file(parts[1]+".dat", std::fstream::out | std::fstream::in | std::fstream::binary 
+              std::fstream file(parts[1]+".dat", std::fstream::out | std::fstream::binary 
 																	 | std::fstream::app);
               if(file.is_open()){
                 // Escreve o registro
                 file.write((char*)&measure, sizeof(LogRecord));
-
-                // PARA CONFERÊNCIA DE ESCRITA:
-                // file.seekg(0, std::fstream::end);
-                // int file_size = file.tellg();
-                // int n = file_size/sizeof(LogRecord);
-                // std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
-                // std::cout << "ID escrito: " << measure.sensor_id << " -> #" << n << std::endl;
-                // std::cout << "Data escrito: " << measure.timestamp << " -> #" << n << std::endl;
-                // std::cout << "Valor escrito: " << measure.value << " -> #" << n << std::endl;
               }
               // Envia echo para sensor
               write_message(message);
             } else if(parts[0] == "GET"){
-              std::fstream file(parts[1]+".dat", std::fstream::out | std::fstream::in | std::fstream::binary 
+              std::fstream file(parts[1]+".dat", std::fstream::in | std::fstream::binary 
 																	 | std::fstream::app);
               if(file.is_open()){
                 // Confere tamanho do arquivo
@@ -105,11 +96,6 @@ private:
                       file.read((char*)&rec, sizeof(LogRecord));
                       // Redige a reposta que será enviada para o cliente
                       response = response + ";" + time_t_to_string(rec.timestamp) + "|" + std::to_string(rec.value);
-
-                      // PARA CONFERÊNCIA DE LEITURA:
-                      // std::cout << "ID #" << i << " lido: " << rec.sensor_id << std::endl;
-                      // std::cout << "Data #" << i << " lido: " << rec.timestamp << std::endl;
-                      // std::cout << "Valor #" << i << " lido: " << rec.value << std::endl;
                     }
                     // Envia resposta
                     write_message(response + "\r\n");
@@ -121,10 +107,8 @@ private:
                       LogRecord rec;
                       file.read((char*)&rec, sizeof(LogRecord));
                       response = response + ";" + time_t_to_string(rec.timestamp) + "|" + std::to_string(rec.value);
-                      // std::cout << "ID lido: " << rec.sensor_id << std::endl;
-                      // std::cout << "Data lido: " << rec.timestamp << std::endl;
-                      // std::cout << "Valor lido: " << rec.value << std::endl;
                     }
+                    
                     // Envia resposta
                     write_message(response + "\r\n");
                 }

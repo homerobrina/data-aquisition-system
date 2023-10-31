@@ -62,49 +62,74 @@ private:
             std::vector<std::string> parts;
             boost::split(parts, message, boost::is_any_of("|"));
 
-            if(parts[0].compare("LOG") == 0){
+            if(parts[0] == "LOG"){
               LogRecord measure;
                 if (parts[1].size() < sizeof(measure.sensor_id)) {
                     std::strcpy(measure.sensor_id, parts[1].c_str());
                 } else {
-                    std::cerr << "Sensor ID too long." << std::endl;
+                    std::cout << "Sensor ID too long." << std::endl;
                 }
               measure.timestamp = string_to_time_t(parts[2]);
               measure.value = std::stod(parts[3]);
               std::fstream file(parts[1]+".dat", std::fstream::out | std::fstream::in | std::fstream::binary 
 																	 | std::fstream::app);
               if(file.is_open()){
+                // Escreve o registro
                 file.write((char*)&measure, sizeof(LogRecord));
-              }
 
-              std::cout << "ID escrito: " << measure.sensor_id << std::endl;
-              std::cout << "Data escrito: " << measure.timestamp << std::endl;
-              std::cout << "Valor escrito: " << measure.value << std::endl;
-              std::cout << std::endl;              
-            } else if(parts[0].compare("GET") == 0){
+                // PARA CONFERÊNCIA DE ESCRITA:
+                // file.seekg(0, std::fstream::end);
+                // int file_size = file.tellg();
+                // int n = file_size/sizeof(LogRecord);
+                // std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
+                // std::cout << "ID escrito: " << measure.sensor_id << " -> #" << n << std::endl;
+                // std::cout << "Data escrito: " << measure.timestamp << " -> #" << n << std::endl;
+                // std::cout << "Valor escrito: " << measure.value << " -> #" << n << std::endl;
+              }
+              // Envia echo para sensor
+              write_message(message);
+            } else if(parts[0] == "GET"){
               std::fstream file(parts[1]+".dat", std::fstream::out | std::fstream::in | std::fstream::binary 
 																	 | std::fstream::app);
               if(file.is_open()){
-                file.seekp((1)*sizeof(LogRecord), std::ios_base::beg);
-                // Le o registro selecionado
-                LogRecord rec;
-                file.read((char*)&rec, sizeof(LogRecord));
-                std::cout << "ID lido: " << rec.sensor_id << std::endl;
-                std::cout << "Data lido: " << rec.timestamp << std::endl;
-                std::cout << "Valor lido: " << rec.value << std::endl;
-                std::cout << "Data em str: " << time_t_to_string(rec.timestamp) << std::endl;
+                // Confere tamanho do arquivo
+                file.seekg(0, std::fstream::end);
+                int file_size = file.tellg();
+                int n = file_size/sizeof(LogRecord);
+                if(stoi(parts[2]) < n){
+                    // Posiciona o cursor onde ele deve começar a ler
+                    file.seekg((-stoi(parts[2]))*sizeof(LogRecord), std::ios_base::end);
+                    std::string response = parts[2];
+                    for (int i = 0; i < stoi(parts[2]); i++){
+                      LogRecord rec;
+                      file.read((char*)&rec, sizeof(LogRecord));
+                      // Redige a reposta que será enviada para o cliente
+                      response = response + ";" + time_t_to_string(rec.timestamp) + "|" + std::to_string(rec.value);
+
+                      // PARA CONFERÊNCIA DE LEITURA:
+                      // std::cout << "ID #" << i << " lido: " << rec.sensor_id << std::endl;
+                      // std::cout << "Data #" << i << " lido: " << rec.timestamp << std::endl;
+                      // std::cout << "Valor #" << i << " lido: " << rec.value << std::endl;
+                    }
+                    // Envia resposta
+                    write_message(response + "\r\n");
+                } else {
+                    file.seekg(0, std::ios_base::beg);
+                    std::cout << "Num records: " << n << " < Num req: " << parts[2] << std::endl;
+                    std::string response = std::to_string(n);
+                    for (int i = 0; i < n; i++){
+                      LogRecord rec;
+                      file.read((char*)&rec, sizeof(LogRecord));
+                      response = response + ";" + time_t_to_string(rec.timestamp) + "|" + std::to_string(rec.value);
+                      // std::cout << "ID lido: " << rec.sensor_id << std::endl;
+                      // std::cout << "Data lido: " << rec.timestamp << std::endl;
+                      // std::cout << "Valor lido: " << rec.value << std::endl;
+                    }
+                    // Envia resposta
+                    write_message(response + "\r\n");
+                }
               }
-              
-              // LogRecord measure;
-              //   if (parts[1].size() < sizeof(measure.sensor_id)) {
-              //       std::strcpy(measure.sensor_id, parts[1].c_str());
-              //   } else {
-              //       std::cerr << "Sensor ID too long." << std::endl;
-              //   }
-              // measure.timestamp = string_to_time_t(parts[2]);
-              // measure.value = std::stod(parts[3]);
           }
-            write_message(message);
           }
         });
   }

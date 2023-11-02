@@ -1,3 +1,7 @@
+// INTEGRANTES:
+// FERNANDA ALBUQUERQUE - 2020021204
+// HOMERO BRINA CASTRO - 2021014007
+
 #include <cstdlib>
 #include <iostream>
 #include <memory>
